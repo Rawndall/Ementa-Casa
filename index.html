@@ -9,7 +9,7 @@
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; font-family: 'Segoe UI', system-ui, sans-serif; }
         body { background: var(--bg); margin: 0; padding: 0; color: #1e293b; padding-bottom: 90px; }
 
-        /* Login Screen */
+        /* Login Screen Full Overlay */
         #login-screen {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: var(--bg); z-index: 9999;
@@ -31,7 +31,7 @@
         .page.active { display: block; }
 
         .card { background: var(--card); padding: 20px; border-radius: 24px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
-        h2 { font-size: 1.2rem; margin: 0 0 20px 0; color: var(--p); display: flex; justify-content: space-between; }
+        h2 { font-size: 1.2rem; margin: 0 0 20px 0; color: var(--p); display: flex; justify-content: space-between; align-items: center; }
 
         .nav-bar {
             position: fixed; bottom: 0; left: 0; right: 0;
@@ -44,21 +44,18 @@
         }
         .nav-item.active { color: var(--p); }
 
-        input[type="text"], input[type="number"], input[type="password"] { 
-            background: #f8fafc; border: 2px solid #e2e8f0; border-radius: 12px; 
-            padding: 12px; font-size: 16px; width: 100%; outline: none; margin-bottom: 10px;
-        }
-
+        input { background: #f8fafc; border: 2px solid #e2e8f0; border-radius: 12px; padding: 12px; font-size: 16px; width: 100%; outline: none; margin-bottom: 10px; }
+        
         .low-stock { border-color: var(--warn) !important; background: #fffbeb !important; }
         .out-of-stock { border-color: var(--danger) !important; background: #fef2f2 !important; }
 
         .btn { border: none; border-radius: 14px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; min-height: 48px; width: 100%; }
         .btn-add { background: var(--s); color: white; margin-top: 10px; }
         .btn-del { background: #fee2e2; color: var(--danger); padding: 0 12px; border-radius: 10px; border: none; height: 40px; }
-        .btn-logout { background: none; color: var(--danger); font-size: 0.7rem; border: 1px solid #fee2e2; padding: 4px 8px; border-radius: 8px; cursor: pointer; }
+        .btn-logout { background: #f1f5f9; color: #64748b; font-size: 0.65rem; border: none; padding: 6px 10px; border-radius: 8px; cursor: pointer; font-weight: bold; }
 
         .stock-row, .todo-row { display: flex; gap: 8px; margin-bottom: 12px; align-items: center; }
-        .todo-check { width: 28px; height: 28px; accent-color: var(--s); }
+        .todo-check { width: 28px; height: 28px; accent-color: var(--s); cursor: pointer; }
         .todo-done { text-decoration: line-through; opacity: 0.5; }
         .dia-label { font-size: 0.7rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; margin-bottom: 4px; display: block; }
         .sugestao-card { background: #eff6ff; border: 1px solid #bfdbfe; padding: 15px; border-radius: 16px; margin-bottom: 15px; }
@@ -69,15 +66,15 @@
     <div id="login-screen">
         <div class="login-card">
             <div style="font-size: 3rem; margin-bottom: 10px;">🏠</div>
-            <h2>Home Control</h2>
-            <div id="login-msg" style="color: var(--danger); font-size: 0.8rem; margin-bottom: 10px; display: none;">Dados incorretos</div>
-            <input type="text" id="user" placeholder="Utilizador">
+            <h2 style="justify-content: center;">Home Control</h2>
+            <div id="login-msg" style="color: var(--danger); font-size: 0.8rem; margin-bottom: 10px; display: none;">Acesso negado</div>
+            <input type="text" id="user" placeholder="Utilizador" spellcheck="false">
             <input type="password" id="pass" placeholder="Palavra-passe">
             <button class="btn btn-add" onclick="verificarLogin()" style="background: var(--p)">Entrar</button>
         </div>
     </div>
 
-    <div class="status-header" id="status-api">☁️ A ligar à nuvem...</div>
+    <div class="status-header" id="status-api">☁️ A ligar...</div>
 
     <div class="container">
         <div id="page-todos" class="page active">
@@ -101,7 +98,6 @@
                 <h2>📅 Ementa</h2>
                 <div id="container-receitas"></div>
                 <div id="lista-ementa"></div>
-                <p style="font-size: 0.7rem; color: #94a3b8; text-align: center;">💾 Gravação automática ativa</p>
             </div>
         </div>
     </div>
@@ -117,37 +113,37 @@
     const API_KEY = "$2a$10$dyhhWbJxbYjcfGsu/BPA3ePp1sbZ5TalNywgdCTIGf7YkCrEnWld6"; 
     const URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
 
-    let stock = []; let ementa = {}; let todos = []; let cloudAuth = null;
+    let stock = [], ementa = {}, todos = [], cloudAuth = null;
     let saveTimeout;
     const dias = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"];
     
-    const RECEITAS = [
-        { nome: "🍳 Omelete", ing: ["ovo"] },
-        { nome: "🍝 Massa com Atum", ing: ["massa", "atum"] },
-        { nome: "🍗 Frango com Arroz", ing: ["frango", "arroz"] },
-        { nome: "🥓 Carbonara", ing: ["massa", "ovo", "bacon"] }
-    ];
-
-    // INICIALIZAÇÃO E LOGIN
+    // Início
     window.onload = async () => {
-        if (sessionStorage.getItem("isLoggedIn") === "true") {
+        const logado = sessionStorage.getItem("isLoggedIn");
+        await carregarTudoDaNuvem(); // Baixa os dados primeiro (incluindo auth)
+        
+        if (logado === "true") {
             document.getElementById('login-screen').style.display = 'none';
-            await carregarDaCloud();
-        } else {
-            preCarregarDados();
+            render();
         }
     };
 
-    async function preCarregarDados() {
+    async function carregarTudoDaNuvem() {
         try {
+            updateStatus("☁️ A ligar...", "#f1f5f9");
             const res = await fetch(URL, { headers: { "X-Master-Key": API_KEY } });
             const data = await res.json();
+            
+            // Dados da Nuvem
             cloudAuth = data.record.auth;
             stock = data.record.stock || [];
             ementa = data.record.ementa || {};
             todos = data.record.todos || [];
-            updateStatus("☁️ Aguardando Login", "#f1f5f9");
-        } catch (err) { updateStatus("❌ Erro de Rede", "#fee2e2"); }
+            
+            updateStatus("✅ Ligado", "#dcfce7");
+        } catch (err) { 
+            updateStatus("❌ Erro de Rede", "#fee2e2"); 
+        }
     }
 
     function verificarLogin() {
@@ -155,16 +151,15 @@
         const p = document.getElementById('pass').value;
         const msg = document.getElementById('login-msg');
 
-        if (!cloudAuth) { alert("A carregar dados... tenta de novo."); return; }
+        if (!cloudAuth) { alert("Aguarde a ligação à nuvem..."); return; }
 
-        const userValido = cloudAuth.find(perfil => perfil.user === u && perfil.pass === p);
+        // Procura o par user/pass no array baixado do JSONBin
+        const userOk = cloudAuth.find(a => a.user === u && a.pass === p);
 
-        if (userValido) {
+        if (userOk) {
             sessionStorage.setItem("isLoggedIn", "true");
-            sessionStorage.setItem("userAtivo", userValido.user);
             document.getElementById('login-screen').style.display = 'none';
             render();
-            updateStatus(`✅ Olá, ${userValido.user}`, "#dcfce7");
         } else {
             msg.style.display = 'block';
         }
@@ -178,42 +173,36 @@
     // NAVEGAÇÃO
     function showPage(pageId, btn) {
         if (sessionStorage.getItem("isLoggedIn") !== "true") return;
-        salvarDadosLocaisDaEmenta(); 
+        salvarEmentaLocal(); 
         document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
         document.getElementById(pageId).classList.add('active');
         document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
     }
 
-    function salvarDadosLocaisDaEmenta() {
+    function salvarEmentaLocal() {
         dias.forEach(d => {
             const el = document.getElementById(`in-${d}`);
             if (el) ementa[d] = el.value;
         });
     }
 
-    // CLOUD
-    async function carregarDaCloud() {
-        await preCarregarDados();
-        render();
-        updateStatus("✅ Sincronizado", "#dcfce7");
-    }
-
+    // CLOUD SAVE
     function triggerAutoSave() {
         updateStatus("⏳ A guardar...", "#fef9c3");
         clearTimeout(saveTimeout);
-        saveTimeout = setTimeout(() => { salvarNaCloud(); }, 2000); 
+        saveTimeout = setTimeout(salvarNaCloud, 2000); 
     }
 
     async function salvarNaCloud() {
-        salvarDadosLocaisDaEmenta();
+        salvarEmentaLocal();
         try {
             await fetch(URL, {
                 method: 'PUT',
                 headers: { "Content-Type": "application/json", "X-Master-Key": API_KEY },
                 body: JSON.stringify({ auth: cloudAuth, stock, ementa, todos })
             });
-            updateStatus("✅ Guardado", "#dcfce7");
+            updateStatus("✅ Sincronizado", "#dcfce7");
         } catch (err) { updateStatus("❌ Erro ao Gravar", "#fee2e2"); }
     }
 
@@ -222,9 +211,9 @@
         if(s) { s.innerText = text; s.style.background = bg; }
     }
 
-    // RENDERIZAÇÃO
+    // RENDERS
     function render() {
-        // Render Todos
+        // Todos
         document.getElementById('lista-todo').innerHTML = todos.map((t, i) => `
             <div class="todo-row">
                 <input type="checkbox" class="todo-check" ${t.done ? 'checked' : ''} onchange="todos[${i}].done=this.checked; triggerAutoSave(); render()">
@@ -232,18 +221,18 @@
                 <button class="btn-del" onclick="removerTodo(${i})">×</button>
             </div>`).join('');
 
-        // Render Stock
+        // Stock
         document.getElementById('lista-stock').innerHTML = stock.map((item, i) => {
-            const alertClass = item.qtd <= 0 ? 'out-of-stock' : (item.qtd === 1 ? 'low-stock' : '');
+            const cl = item.qtd <= 0 ? 'out-of-stock' : (item.qtd === 1 ? 'low-stock' : '');
             return `
             <div class="stock-row">
-                <input type="text" style="flex:3" class="${alertClass}" value="${item.nome}" onchange="stock[${i}].nome=this.value; triggerAutoSave(); verificarReceitas()">
-                <input type="number" style="flex:1; min-width:70px" class="${alertClass}" value="${item.qtd}" onchange="stock[${i}].qtd=parseInt(this.value)||0; triggerAutoSave(); render()">
+                <input type="text" style="flex:3" class="${cl}" value="${item.nome}" onchange="stock[${i}].nome=this.value; triggerAutoSave(); verificarReceitas()">
+                <input type="number" style="flex:1" class="${cl}" value="${item.qtd}" onchange="stock[${i}].qtd=parseInt(this.value)||0; triggerAutoSave(); render()">
                 <button class="btn-del" onclick="removerStock(${i})">×</button>
             </div>`;
         }).join('');
 
-        // Render Ementa
+        // Ementa
         document.getElementById('lista-ementa').innerHTML = dias.map(dia => `
             <div style="margin-bottom:12px">
                 <label class="dia-label">${dia}</label>
@@ -254,17 +243,22 @@
     }
 
     function verificarReceitas() {
+        const RECEITAS = [
+            { nome: "🍳 Omelete", ing: ["ovo"] },
+            { nome: "🍝 Massa com Atum", ing: ["massa", "atum"] },
+            { nome: "🍗 Frango com Arroz", ing: ["frango", "arroz"] },
+            { nome: "🥓 Carbonara", ing: ["massa", "ovo", "bacon"] }
+        ];
         const box = document.getElementById('container-receitas');
         const itens = stock.filter(i => i.qtd > 0).map(i => i.nome.toLowerCase());
         const sug = RECEITAS.filter(r => r.ing.every(ing => itens.some(meu => meu.includes(ing))));
-        box.innerHTML = sug.length ? `<div class="sugestao-card"><span class="dia-label" style="color:var(--p)">Podes fazer hoje:</span><b>${sug.map(s=>s.nome).join(" • ")}</b></div>` : "";
+        box.innerHTML = sug.length ? `<div class="sugestao-card"><span class="dia-label" style="color:var(--p)">Podes fazer:</span><b>${sug.map(s=>s.nome).join(" • ")}</b></div>` : "";
     }
 
-    // AÇÕES
     function addTodo() { todos.push({txt: "", done: false}); render(); }
-    function removerTodo(i) { if(confirm("Eliminar tarefa?")) { todos.splice(i,1); render(); triggerAutoSave(); } }
+    function removerTodo(i) { if(confirm("Eliminar?")) { todos.splice(i,1); render(); triggerAutoSave(); } }
     function addItem() { stock.push({nome: "", qtd: 1}); render(); }
-    function removerStock(i) { if(confirm("Eliminar item?")) { stock.splice(i,1); render(); triggerAutoSave(); } }
+    function removerStock(i) { if(confirm("Eliminar?")) { stock.splice(i,1); render(); triggerAutoSave(); } }
 
 </script>
 </body>
