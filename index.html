@@ -9,17 +9,6 @@
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; font-family: 'Segoe UI', system-ui, sans-serif; }
         body { background: var(--bg); margin: 0; padding: 0; color: #1e293b; padding-bottom: 90px; }
 
-        /* Login Screen Full Overlay */
-        #login-screen {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: var(--bg); z-index: 9999;
-            display: flex; align-items: center; justify-content: center; padding: 20px;
-        }
-        .login-card {
-            background: white; padding: 30px; border-radius: 24px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 350px; text-align: center;
-        }
-
         .status-header { 
             font-size: 0.75rem; padding: 10px; text-align: center;
             background: white; border-bottom: 1px solid #e2e8f0;
@@ -31,7 +20,7 @@
         .page.active { display: block; }
 
         .card { background: var(--card); padding: 20px; border-radius: 24px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
-        h2 { font-size: 1.2rem; margin: 0 0 20px 0; color: var(--p); display: flex; justify-content: space-between; align-items: center; }
+        h2 { font-size: 1.2rem; margin: 0 0 20px 0; color: var(--p); }
 
         .nav-bar {
             position: fixed; bottom: 0; left: 0; right: 0;
@@ -52,7 +41,6 @@
         .btn { border: none; border-radius: 14px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; min-height: 48px; width: 100%; }
         .btn-add { background: var(--s); color: white; margin-top: 10px; }
         .btn-del { background: #fee2e2; color: var(--danger); padding: 0 12px; border-radius: 10px; border: none; height: 40px; }
-        .btn-logout { background: #f1f5f9; color: #64748b; font-size: 0.65rem; border: none; padding: 6px 10px; border-radius: 8px; cursor: pointer; font-weight: bold; }
 
         .stock-row, .todo-row { display: flex; gap: 8px; margin-bottom: 12px; align-items: center; }
         .todo-check { width: 28px; height: 28px; accent-color: var(--s); cursor: pointer; }
@@ -63,23 +51,12 @@
 </head>
 <body>
 
-    <div id="login-screen">
-        <div class="login-card">
-            <div style="font-size: 3rem; margin-bottom: 10px;">🏠</div>
-            <h2 style="justify-content: center;">Home Control</h2>
-            <div id="login-msg" style="color: var(--danger); font-size: 0.8rem; margin-bottom: 10px; display: none;">Acesso negado</div>
-            <input type="text" id="user" placeholder="Utilizador" spellcheck="false">
-            <input type="password" id="pass" placeholder="Palavra-passe">
-            <button class="btn btn-add" onclick="verificarLogin()" style="background: var(--p)">Entrar</button>
-        </div>
-    </div>
-
     <div class="status-header" id="status-api">☁️ A ligar...</div>
 
     <div class="container">
         <div id="page-todos" class="page active">
             <div class="card">
-                <h2>✅ Afazeres <button class="btn-logout" onclick="logout()">Sair</button></h2>
+                <h2>✅ Afazeres</h2>
                 <div id="lista-todo"></div>
                 <button class="btn btn-add" onclick="addTodo()">+ Nova Tarefa</button>
             </div>
@@ -113,20 +90,12 @@
     const API_KEY = "$2a$10$dyhhWbJxbYjcfGsu/BPA3ePp1sbZ5TalNywgdCTIGf7YkCrEnWld6"; 
     const URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
 
-    let stock = [], ementa = {}, todos = [], cloudAuth = null;
+    let stock = [], ementa = {}, todos = [];
     let saveTimeout;
     const dias = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"];
     
-    // Início
-    window.onload = async () => {
-        const logado = sessionStorage.getItem("isLoggedIn");
-        await carregarTudoDaNuvem(); // Baixa os dados primeiro (incluindo auth)
-        
-        if (logado === "true") {
-            document.getElementById('login-screen').style.display = 'none';
-            render();
-        }
-    };
+    // Carregar dados mal a página abre
+    window.onload = carregarTudoDaNuvem;
 
     async function carregarTudoDaNuvem() {
         try {
@@ -134,45 +103,38 @@
             const res = await fetch(URL, { headers: { "X-Master-Key": API_KEY } });
             const data = await res.json();
             
-            // Dados da Nuvem
-            cloudAuth = data.record.auth;
             stock = data.record.stock || [];
             ementa = data.record.ementa || {};
             todos = data.record.todos || [];
             
-            updateStatus("✅ Ligado", "#dcfce7");
-        } catch (err) { 
-            updateStatus("❌ Erro de Rede", "#fee2e2"); 
-        }
-    }
-
-    function verificarLogin() {
-        const u = document.getElementById('user').value;
-        const p = document.getElementById('pass').value;
-        const msg = document.getElementById('login-msg');
-
-        if (!cloudAuth) { alert("Aguarde a ligação à nuvem..."); return; }
-
-        // Procura o par user/pass no array baixado do JSONBin
-        const userOk = cloudAuth.find(a => a.user === u && a.pass === p);
-
-        if (userOk) {
-            sessionStorage.setItem("isLoggedIn", "true");
-            document.getElementById('login-screen').style.display = 'none';
             render();
-        } else {
-            msg.style.display = 'block';
+            updateStatus("✅ Sincronizado", "#dcfce7");
+        } catch (err) { 
+            updateStatus("❌ Erro ao Carregar", "#fee2e2"); 
         }
     }
 
-    function logout() {
-        sessionStorage.clear();
-        location.reload();
+    function triggerAutoSave() {
+        updateStatus("⏳ A guardar...", "#fef9c3");
+        clearTimeout(saveTimeout);
+        saveTimeout = setTimeout(salvarNaCloud, 2000); 
     }
 
-    // NAVEGAÇÃO
+    async function salvarNaCloud() {
+        salvarEmentaLocal();
+        try {
+            // Nota: Se tiveres o campo "auth" no JSONBin, ele será mantido 
+            // se o leres primeiro, mas aqui enviamos apenas os dados de uso.
+            await fetch(URL, {
+                method: 'PUT',
+                headers: { "Content-Type": "application/json", "X-Master-Key": API_KEY },
+                body: JSON.stringify({ stock, ementa, todos })
+            });
+            updateStatus("✅ Guardado", "#dcfce7");
+        } catch (err) { updateStatus("❌ Erro ao Gravar", "#fee2e2"); }
+    }
+
     function showPage(pageId, btn) {
-        if (sessionStorage.getItem("isLoggedIn") !== "true") return;
         salvarEmentaLocal(); 
         document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
         document.getElementById(pageId).classList.add('active');
@@ -187,33 +149,12 @@
         });
     }
 
-    // CLOUD SAVE
-    function triggerAutoSave() {
-        updateStatus("⏳ A guardar...", "#fef9c3");
-        clearTimeout(saveTimeout);
-        saveTimeout = setTimeout(salvarNaCloud, 2000); 
-    }
-
-    async function salvarNaCloud() {
-        salvarEmentaLocal();
-        try {
-            await fetch(URL, {
-                method: 'PUT',
-                headers: { "Content-Type": "application/json", "X-Master-Key": API_KEY },
-                body: JSON.stringify({ auth: cloudAuth, stock, ementa, todos })
-            });
-            updateStatus("✅ Sincronizado", "#dcfce7");
-        } catch (err) { updateStatus("❌ Erro ao Gravar", "#fee2e2"); }
-    }
-
     function updateStatus(text, bg) {
         const s = document.getElementById('status-api');
         if(s) { s.innerText = text; s.style.background = bg; }
     }
 
-    // RENDERS
     function render() {
-        // Todos
         document.getElementById('lista-todo').innerHTML = todos.map((t, i) => `
             <div class="todo-row">
                 <input type="checkbox" class="todo-check" ${t.done ? 'checked' : ''} onchange="todos[${i}].done=this.checked; triggerAutoSave(); render()">
@@ -221,7 +162,6 @@
                 <button class="btn-del" onclick="removerTodo(${i})">×</button>
             </div>`).join('');
 
-        // Stock
         document.getElementById('lista-stock').innerHTML = stock.map((item, i) => {
             const cl = item.qtd <= 0 ? 'out-of-stock' : (item.qtd === 1 ? 'low-stock' : '');
             return `
@@ -232,7 +172,6 @@
             </div>`;
         }).join('');
 
-        // Ementa
         document.getElementById('lista-ementa').innerHTML = dias.map(dia => `
             <div style="margin-bottom:12px">
                 <label class="dia-label">${dia}</label>
@@ -259,7 +198,6 @@
     function removerTodo(i) { if(confirm("Eliminar?")) { todos.splice(i,1); render(); triggerAutoSave(); } }
     function addItem() { stock.push({nome: "", qtd: 1}); render(); }
     function removerStock(i) { if(confirm("Eliminar?")) { stock.splice(i,1); render(); triggerAutoSave(); } }
-
 </script>
 </body>
 </html>
